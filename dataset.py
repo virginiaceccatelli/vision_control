@@ -1,0 +1,36 @@
+import json, os
+import numpy as np
+from PIL import Image, ImageDraw
+from torch.utils.data import Dataset
+import cv2
+
+# ----------------- convert LabelMe JSON to binary masks -----------------
+def json_to_mask(json_path, out_shape):
+    data = json.load(open(json_path))
+    mask = Image.new("L", out_shape, 0)
+    draw = ImageDraw.Draw(mask)
+    for shape in data["shapes"]:
+        if shape["label"] == "ground":
+            pts = shape["points"]
+            draw.polygon([tuple(p) for p in pts], outline=1, fill=1)
+    return np.array(mask, dtype=np.uint8) * 255  # 0 or 255
+
+
+# ----------------- create PyTorch Dataset -----------------
+class GroundSegDataset(Dataset):
+    def __init__(self, img_dir, mask_dir, file_list, transforms=None):
+        self.img_dir, self.mask_dir = img_dir, mask_dir
+        self.ids = [line.strip() for line in open(file_list)]
+        self.transforms = transforms
+
+    def __len__(self): return len(self.ids)
+
+    def __getitem__(self, idx):
+        name = self.ids[idx]
+        img = cv2.imread(f"{self.img_dir}/{name}.jpg")       # or .png
+        mask = cv2.imread(f"{self.mask_dir}/{name}.png", 0)  # grayscale
+        if self.transforms:
+            aug = self.transforms(image=img, mask=mask)
+            img, mask = aug["image"], aug["mask"]
+        # normalize & convert to tensors in train.py
+        return img, mask
