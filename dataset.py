@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from torch.utils.data import Dataset
 import cv2
+import torch
 
 # ----------------- convert LabelMe JSON to binary masks -----------------
 def json_to_mask(json_path, out_shape):
@@ -27,10 +28,17 @@ class GroundSegDataset(Dataset):
 
     def __getitem__(self, idx):
         name = self.ids[idx]
-        img = cv2.imread(f"{self.img_dir}/{name}.jpg")       # or .png
-        mask = cv2.imread(f"{self.mask_dir}/{name}.png", 0)  # grayscale
+        # load image
+        img = cv2.imread(f"{self.img_dir}/{name}.jpg")  # or adjust if .png
+        # load mask: E.g. if val.txt has img_0012, you need "data/masks/img_0012.png"
+        mask = cv2.imread(f"{self.mask_dir}/{name}.png", cv2.IMREAD_GRAYSCALE)
+
         if self.transforms:
             aug = self.transforms(image=img, mask=mask)
             img, mask = aug["image"], aug["mask"]
-        # normalize & convert to tensors in train.py
+
+        # convert to tensor
+        img = torch.from_numpy(img).permute(2, 0, 1).float()
+        mask = torch.from_numpy(mask)[None].float()
+
         return img, mask
