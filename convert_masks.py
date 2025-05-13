@@ -2,9 +2,9 @@ import os
 from PIL import Image
 from dataset import json_to_mask
 
-IMG_DIR  = "data/images"
-JSON_DIR = "data/annotations"
-MASK_DIR = "data/masks"
+IMG_DIR  = "/Users/virginiaceccatelli/Documents/CompVisionMorbius"
+JSON_DIR = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/train_data"
+MASK_DIR = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/train_masks"
 os.makedirs(MASK_DIR, exist_ok=True)
 
 for fn in os.listdir(JSON_DIR):

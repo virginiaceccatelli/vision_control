@@ -4,6 +4,10 @@ from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
 from dataset import GroundSegDataset
 
+IMG_DIR  = "/Users/virginiaceccatelli/Documents/CompVisionMorbius"
+SPLIT = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits"
+MASK_DIR = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/train_masks"
+
 # ----------------- define transforms -----------------
 train_transform = A.Compose([
     A.Resize(320, 320), # Resize to a fixed 320×320
@@ -18,9 +22,9 @@ val_transform = A.Compose([
 ])
 
 # ----------------- training script -----------------
-# 1) Datasets & loaders
-train_ds = GroundSegDataset("data/images","data/masks","data/splits/train.txt",train_transform)
-val_ds   = GroundSegDataset("data/images","data/masks","data/splits/val.txt",val_transform)
+# 1) Datasets & loaders: need to run command line prompt before this!
+train_ds = GroundSegDataset(IMG_DIR,MASK_DIR,SPLIT,train_transform)
+val_ds   = GroundSegDataset(IMG_DIR,MASK_DIR,SPLIT,val_transform)
 train_dl = DataLoader(train_ds, batch_size=8, shuffle=True, num_workers=4)
 val_dl   = DataLoader(val_ds, batch_size=8, shuffle=False, num_workers=4)
 
