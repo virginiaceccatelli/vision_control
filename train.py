@@ -6,7 +6,7 @@ from dataset import GroundSegDataset
 
 # ----------------- define transforms -----------------
 train_transform = A.Compose([
-    A.Resize(320, 320),
+    A.Resize(320, 320), # Resize to a fixed 320×320
     A.HorizontalFlip(p=0.5),
     A.RandomBrightnessContrast(p=0.3),
     A.Normalize(),  # to 0–1 and mean/std
@@ -24,7 +24,7 @@ val_ds   = GroundSegDataset("data/images","data/masks","data/splits/val.txt",val
 train_dl = DataLoader(train_ds, batch_size=8, shuffle=True, num_workers=4)
 val_dl   = DataLoader(val_ds, batch_size=8, shuffle=False, num_workers=4)
 
-# 2) Model
+# 2) Model: U-Net with a MobileNetV2 encoder pretrained on ImageNet
 model = smp.Unet("mobilenet_v2", encoder_weights="imagenet", classes=1, activation=None)
 model = model.to("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -38,4 +38,5 @@ logits = model(imgs.to(model.device))
 loss = criterion(logits, masks.to(model.device)/255.0)
 print("Initial loss:", loss.item()); exit()
 
-# Once that runs without error, remove the exit() and implement the full epoch loop.
+# if finite loss number: data pipeline, transforms, tensor shapes and model wiring are all correct
+# Once this runs without error (i.e. finite loss), remove the exit() and implement the full epoch loop.
