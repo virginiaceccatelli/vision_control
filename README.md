@@ -1,4 +1,4 @@
-Train a CNN that, for each pixel in a color image, predicts “ground” vs. “not-ground.”  No depth sensor needed—just the RGB stream, so it's independent of ROS and there is no need for extra equiptment.
+### *Robotic Vision Project: Train model to predict 'ground' vs 'not ground' in a hospital environment, and thereby find possible local paths.*
 
 ### STEPS: 
 1. Data collection & labeling
