@@ -28,10 +28,18 @@ class GroundSegDataset(Dataset):
 
     def __getitem__(self, idx):
         name = self.ids[idx]
-        # load image
-        img = cv2.imread(f"{self.img_dir}/{name}.jpg")  # or adjust if .png
-        # load mask: E.g. if val.txt has img_0012, you need "data/masks/img_0012.png"
-        mask = cv2.imread(f"{self.mask_dir}/{name}.png", cv2.IMREAD_GRAYSCALE)
+
+        img_path = os.path.join(self.img_dir, f"{name}.png")
+        mask_path = os.path.join(self.mask_dir, f"{name}.png")
+
+        # Debug check
+        if not os.path.isfile(img_path):
+            raise FileNotFoundError(f"Image not found: {img_path}")
+        if not os.path.isfile(mask_path):
+            raise FileNotFoundError(f"Mask not found:  {mask_path}")
+
+        img = cv2.imread(img_path, cv2.IMREAD_COLOR)  # returns H×W×3 (BGR)
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)  # returns H×W
 
         if self.transforms: # resizing to 320×320, flips, brightness changes, and normalization
             aug = self.transforms(image=img, mask=mask)
