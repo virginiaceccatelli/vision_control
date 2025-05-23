@@ -138,22 +138,30 @@ def visualize_predictions(args, model):
 
 def main():
     p = argparse.ArgumentParser(description="Train U-Net for ground segmentation")
-    p.add_argument("--img_dir",     type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment")
-    p.add_argument("--mask_dir",    type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment/hospital_json")
-    p.add_argument("--train_split", type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/train.txt")
-    p.add_argument("--val_split",   type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/val.txt")
-    p.add_argument("--img_ext",     type=str, default="png",
-                   help="Extension of input images (png or jpg)")
-    p.add_argument("--batch_size",  type=int, default=8)
-    p.add_argument("--epochs",      type=int, default=40)
-    p.add_argument("--lr",          type=float, default=1e-3) # learning rate
-    p.add_argument("--output_dir",  type=str, default="checkpoints")
-    p.add_argument("--best_epoch", type=int, default=17) # best epoch to visualize
-    p.add_argument("--num_visualize", type=int, default=1) # num pictures to visualize
+    p.add_argument("-img_dir",     type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment")
+    p.add_argument("-mask_dir",    type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment/hospital_json")
+    p.add_argument("-train_split", type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/train.txt")
+    p.add_argument("-val_split",   type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/val.txt")
+    p.add_argument("-img_ext",     type=str, default="png")
+    p.add_argument("-mode", type=str, default="infer", choices=["train", "infer"])
+    p.add_argument("-batch_size",  type=int, default=8)
+    p.add_argument("-epochs",      type=int, default=40)
+    p.add_argument("-lr",          type=float, default=1e-3) # learning rate
+    p.add_argument("-output_dir",  type=str, default="checkpoints")
+    p.add_argument("-best_epoch", type=int, default=17) # best epoch to visualize
+    p.add_argument("-num_visualize", type=int, default=5) # num pictures to visualize
     args = p.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
-    train(args)
+
+    if args.mode == "train":
+        train(args)
+    else:  # infer
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = smp.Unet("mobilenet_v2",
+                         encoder_weights="imagenet",
+                         classes=1, activation=None).to(device)
+        visualize_predictions(args, model)
 
 if __name__ == "__main__":
     main()
