@@ -7,4 +7,12 @@ Train convolutional neural networks for ground-plane segmentation and navigation
 3. Inference script and fine-tuning 
 4. Adapt script for video use: real robotic vision prototype 
 
-current metrics can be found under visualisations 
+## Order of scripts: 
+1. convert_masks.py
+2. split.sh
+3. train.py (-mode train for training or -mode infer for specific checkpoint)
+4. x_metrics.sh infile outfile 
+5. plot.py 
+
+### current metrics can be found under visualisations
+
