@@ -21,10 +21,10 @@ def train(args):
     # ----------------- transforms config -----------------
     train_transform = A.Compose([ # image augmentation
         A.Resize(320, 320), # Resize to a fixed 320×320
-        A.HorizontalFlip(p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.3, p=0.5),
+        A.HorizontalFlip(p=0.6),
+        A.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.2, p=0.5),
         A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),  # centered at 0
-        A.GaussianBlur(p=0.3), # fine tune: slight blur in image -> reduce noise and randomness -> better segmentation?
+        A.GaussianBlur(p=0.15), # fine tune: slight blur in image -> reduce noise and randomness -> better segmentation?
         A.OneOf([
             A.ToGray(p=1.0),
             A.ChannelDropout(p=1.0)
