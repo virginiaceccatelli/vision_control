@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # paths
-IMG_ROOT="/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment"
+IMG_ROOT="/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/hospital_environment"
 ALL_IDS="all_ids.txt"
-SPLITS_DIR="/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits"
+SPLITS_DIR="/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/splits"
 
 set -euo pipefail
 

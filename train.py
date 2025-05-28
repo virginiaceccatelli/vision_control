@@ -11,21 +11,20 @@ import cv2
 import matplotlib.pyplot as plt
 from dataset import GroundSegDataset
 
-IMG_DIR  = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment"
-TRAIN_SPLIT = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/train.txt"
-VAL_SPLIT = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/val.txt"
-MASK_DIR = "/Users/virginiaceccatelli/Documents/CompVisionMorbius/train_masks"
+IMG_DIR = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/hospital_environment"
+TRAIN_SPLIT = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/splits/train.txt"
+VAL_SPLIT = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/splits/val.txt"
+MASK_DIR = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/train_masks"
 
 def train(args):
 
     # ----------------- transforms config -----------------
     train_transform = A.Compose([ # image augmentation
         A.Resize(320, 320), # Resize to a fixed 320×320
-        A.HorizontalFlip(p=0.6),
-        A.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.2, p=0.5),
-        A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),  # centered at 0
-        A.GaussianBlur(p=0.15), # fine tune: slight blur in image -> reduce noise and randomness -> better segmentation?
-        A.OneOf([
+        A.HorizontalFlip(p=0.2),
+        A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.5, p=0.5),
+        A.GaussianBlur(p=0.1), # fine tune: slight blur in image (sigma_limit = [0.5, 3]) -> reduce noise and randomness -> better segmentation?
+	A.OneOf([
             A.ToGray(p=1.0),
             A.ChannelDropout(p=1.0)
         ], p=0.1) # drop either one color channel or grayscale 10%
@@ -42,8 +41,8 @@ def train(args):
     val_ds   = GroundSegDataset(IMG_DIR,MASK_DIR,VAL_SPLIT,val_transform)
 
     # PyTorch DataLoader
-    train_dl = DataLoader(train_ds, batch_size=8, shuffle=True, num_workers=0)
-    val_dl   = DataLoader(val_ds, batch_size=8, shuffle=False, num_workers=0)
+    train_dl = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    val_dl   = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     # Model: U-Net with a MobileNetV2 encoder pretrained on ImageNet
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # cuda: NVIDIA parallel processing GPU
@@ -78,7 +77,7 @@ def train(args):
             for imgs, masks in val_dl:
                 imgs, masks = imgs.to(device), masks.to(device) / 255.0
                 logits = model(imgs)
-                val_loss += criterion(logits, masks).item()
+		val_loss += criterion(logits, masks).item()
                 probs = torch.sigmoid(logits)
                 preds = (probs > 0.5).float()
                 batch_iou = iou(preds, masks)
@@ -138,14 +137,14 @@ def visualize_predictions(args, model):
 
 def main():
     p = argparse.ArgumentParser(description="Train U-Net for ground segmentation")
-    p.add_argument("-img_dir",     type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment")
-    p.add_argument("-mask_dir",    type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/hospital_environment/hospital_json")
-    p.add_argument("-train_split", type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/train.txt")
-    p.add_argument("-val_split",   type=str, default="/Users/virginiaceccatelli/Documents/CompVisionMorbius/splits/val.txt")
+    p.add_argument("-img_dir",     type=str, default="/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/hospital_environment")
+    p.add_argument("-mask_dir",    type=str, default="/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/hospital_environment/hospital_json")
+    p.add_argument("-train_split", type=str, default="/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/splits/train.txt")
+    p.add_argument("-val_split",   type=str, default="/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/splits/val.txt")
     p.add_argument("-img_ext",     type=str, default="png")
-    p.add_argument("-mode", type=str, default="infer", choices=["train", "infer"])
+    p.add_argument("-mode", type=str, default="train", choices=["train", "infer"])
     p.add_argument("-batch_size",  type=int, default=8)
-    p.add_argument("-epochs",      type=int, default=40)
+    p.add_argument("-epochs",      type=int, default=30)
     p.add_argument("-lr",          type=float, default=1e-3) # learning rate
     p.add_argument("-output_dir",  type=str, default="checkpoints")
     p.add_argument("-best_epoch", type=int, default=17) # best epoch to visualize
