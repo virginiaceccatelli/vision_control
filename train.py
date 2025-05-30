@@ -19,16 +19,19 @@ MASK_DIR = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius
 def train(args):
 
     # ----------------- transforms config -----------------
+    
     train_transform = A.Compose([ # image augmentation
         A.Resize(320, 320), # Resize to a fixed 320×320
-        A.HorizontalFlip(p=0.2),
-        A.RandomBrightnessContrast(brightness_limit=0.3, contrast_limit=0.5, p=0.5),
-        A.GaussianBlur(p=0.1), # fine tune: slight blur in image (sigma_limit = [0.5, 3]) -> reduce noise and randomness -> better segmentation?
-	A.OneOf([
+        A.HorizontalFlip(p=0.6),
+        A.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.2, p=0.5),
+        A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),  # centered at 0
+        A.GaussianBlur(p=0.15), # fine tune: slight blur in image -> reduce noise and randomness -> better segmentation?
+        A.OneOf([
             A.ToGray(p=1.0),
             A.ChannelDropout(p=1.0)
         ], p=0.1) # drop either one color channel or grayscale 10%
     ])
+   
 
     val_transform = A.Compose([
         A.Resize(320, 320),
@@ -77,7 +80,7 @@ def train(args):
             for imgs, masks in val_dl:
                 imgs, masks = imgs.to(device), masks.to(device) / 255.0
                 logits = model(imgs)
-		val_loss += criterion(logits, masks).item()
+                val_loss += criterion(logits, masks).item()
                 probs = torch.sigmoid(logits)
                 preds = (probs > 0.5).float()
                 batch_iou = iou(preds, masks)
@@ -145,7 +148,7 @@ def main():
     p.add_argument("-mode", type=str, default="train", choices=["train", "infer"])
     p.add_argument("-batch_size",  type=int, default=8)
     p.add_argument("-epochs",      type=int, default=30)
-    p.add_argument("-lr",          type=float, default=1e-3) # learning rate
+    p.add_argument("-lr",          type=float, default=1e-4) # learning rate
     p.add_argument("-output_dir",  type=str, default="checkpoints")
     p.add_argument("-best_epoch", type=int, default=17) # best epoch to visualize
     p.add_argument("-num_visualize", type=int, default=5) # num pictures to visualize
