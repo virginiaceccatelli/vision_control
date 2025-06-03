@@ -10,7 +10,7 @@ model = smp.Unet(
 )
 
 # load trained weights
-model.load_state_dict(torch.load("checkpoints_2/unet_epoch32.pt"))
+model.load_state_dict(torch.load("checkpoints/checkpoints_2/unet_epoch32.pt"))
 model.eval()
 
 # convert to TorchScript
