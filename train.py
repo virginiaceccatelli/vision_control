@@ -96,7 +96,6 @@ def train(args):
         torch.save(model.state_dict(), ckpt_path)
 
     print("Training complete. Models saved to", args.output_dir)
-    visualize_predictions(args, model)
 
 def visualize_predictions(args, model):
     model.eval() # evaluation mode
@@ -149,8 +148,8 @@ def main():
     p.add_argument("-batch_size",  type=int, default=8)
     p.add_argument("-epochs",      type=int, default=30)
     p.add_argument("-lr",          type=float, default=1e-4) # learning rate
-    p.add_argument("-output_dir",  type=str, default="checkpoints")
-    p.add_argument("-best_epoch", type=int, default=17) # best epoch to visualize
+    p.add_argument("-output_dir",  type=str, default="checkpoints_2")
+    p.add_argument("-best_epoch", type=int, default=32) # best epoch to visualize
     p.add_argument("-num_visualize", type=int, default=5) # num pictures to visualize
     args = p.parse_args()
 

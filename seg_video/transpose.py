@@ -65,8 +65,8 @@ while True:
             prev_x, prev_y = x, y
 
     # Draw the central line
-    for i in range(1, len(central_points)):
-        cv2.line(blended, central_points[i - 1], central_points[i], (255, 153, 204), 2) 
+    #for i in range(1, len(central_points)):
+    #    cv2.line(blended, central_points[i - 1], central_points[i], (255, 153, 204), 2) 
     out.write(blended)
 
     cv2.imshow("Segmentation Overlay", blended)
