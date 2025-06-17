@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 # replace
-model = torch.jit.load("unet_ground_plane.pt")
+model = torch.jit.load("../unet_ground_plane.pt")
 model.eval()
 
 # replace 
