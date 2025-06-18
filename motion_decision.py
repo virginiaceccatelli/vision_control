@@ -1,3 +1,4 @@
+import time
 import cv2
 import torch
 import numpy as np
@@ -100,14 +101,69 @@ def process_image(image_path, segmenter, decider):
 
 if __name__ == "__main__":
     ckpt_path = "unet_ground_plane.pt"
-    image_path = "floor17.png"
 
-    test_frame = cv2.imread(image_path)
-    if test_frame is None:
-    	raise ValueError(f"Could not load image at path: {image_path}")
-    h, w = test_frame.shape[:2]
+    last_decision_time = 0
+    decision_interval = 3  # seconds
 
+    cap = cv2.VideoCapture(0)
+    ret, frame = cap.read()
+    h, w = frame.shape[:2]
+
+    out = cv2.VideoWriter("output.mp4", cv2.VideoWriter_fourcc(*'mp4v'), 20, (w, h))  # save video
     segmenter = GroundSegmenter(ckpt_path, device='cpu')
     decider = MotionDeciderWithLasers(segmenter, img_width=w, img_height=h, num_beams=7)
-    process_image(image_path, segmenter, decider)
+    mask = np.zeros((h, w), dtype=np.uint8)  # initialize dummy mask
+    laser_scores = {region: 0 for region in decider.regions}  # initialize empty scores
+    decision = "waiting..."
 
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        h, w = frame.shape[:2]
+        decider.width = w
+        decider.height = h
+
+        current_time = time.time()
+        if current_time - last_decision_time >= decision_interval:
+            mask = segmenter.predict_mask(frame)
+            laser_scores = decider.laser_scan(mask)
+            decision = decider.decide(laser_scores)
+            last_decision_time = current_time
+
+        blended = cv2.addWeighted(frame, 0.7, cv2.applyColorMap(mask, cv2.COLORMAP_JET), 0.3, 0)
+        blended_copy = blended.copy()
+
+        step = decider.width // decider.num_beams
+        max_score = max(laser_scores.values()) if laser_scores else 1
+        region_centers = {}
+
+        for i, region in enumerate(decider.regions):
+            x_start = i * step
+            x_end = x_start + step
+            norm_score = laser_scores[region] / max_score if max_score > 0 else 0
+            intensity = int(255 * (1 - norm_score))
+            overlay = blended_copy.copy()
+            cv2.rectangle(overlay, (x_start, h//2), (x_end, h), (intensity, intensity, intensity), -1)
+            blended_copy = cv2.addWeighted(overlay, 0.3, blended_copy, 0.7, 0)
+            cv2.rectangle(blended_copy, (x_start, h//2), (x_end, h), (100, 100, 100), 1)
+            score_text = f"{laser_scores[region]}"
+            cv2.putText(blended_copy, score_text, (x_start + 5, h - 10), cv2.FONT_HERSHEY_PLAIN, 1.2, (230, 230, 230), 1)
+            region_centers[region] = (x_start + x_end) // 2
+
+        if decision != "stop" and decision != "waiting..." and decision in region_centers:
+            center_x = region_centers[decision]
+            start_point = (decider.width // 2, h)
+            end_point = (center_x, h//2)
+            cv2.line(blended_copy, start_point, end_point, (255, 255, 255), 2)
+
+        cv2.imshow("Motion Decision", blended_copy)
+        out.write(blended_copy)
+
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+
+    out.release()
+    cap.release()
+    cv2.destroyAllWindows()
