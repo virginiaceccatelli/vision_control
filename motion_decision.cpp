@@ -87,6 +87,8 @@ class GroundSegmenter {
         int num_beams;
         vector<string> regions;
     };
+
+    
     
     int main() {
         string model_path = "/Users/virginiaceccatelli/Documents/vision_control/unet_ground_plane.pt";
