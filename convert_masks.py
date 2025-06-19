@@ -10,9 +10,13 @@ os.makedirs(MASK_DIR, exist_ok=True)
 for fn in os.listdir(JSON_DIR):
     if not fn.endswith(".json"): continue
     base = fn[:-5]  # strip “.json”
-    img = Image.open(f"{IMG_DIR}/{base}.png")        # or .png
+    img = Image.open(f"{IMG_DIR}/{base}.png")     
     w,h = img.size                                  # note: (width, height)
-    mask = json_to_mask(f"{JSON_DIR}/{fn}", (w, h))
-    Image.fromarray(mask).save(f"{MASK_DIR}/{base}.png")
+    
+    ground_mask, not_ground_mask = json_to_mask(f"{JSON_DIR}/{fn}", (w, h))
+    final_mask = ground_mask & (~not_ground_mask.astype(bool))
+
+    Image.fromarray(final_mask.astype("uint8") * 255).save(f"{MASK_DIR}/{base}.png")
+
 
 # Each call produces exactly one mask file (base.png), which lines up with one image file (base.jpg).

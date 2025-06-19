@@ -25,7 +25,6 @@ def train(args):
         A.HorizontalFlip(p=0.6),
         A.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.2, p=0.5),
         A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),  # centered at 0
-        A.GaussianBlur(p=0.15), # fine tune: slight blur in image -> reduce noise and randomness -> better segmentation?
         A.OneOf([
             A.ToGray(p=1.0),
             A.ChannelDropout(p=1.0)
@@ -149,7 +148,7 @@ def main():
     p.add_argument("-epochs",      type=int, default=30)
     p.add_argument("-lr",          type=float, default=1e-4) # learning rate
     p.add_argument("-output_dir",  type=str, default="checkpoints_7")
-    p.add_argument("-best_epoch", type=int, default=43) # best epoch to visualize
+    p.add_argument("-best_epoch", type=int, default=46) # best epoch to visualize
     p.add_argument("-num_visualize", type=int, default=5) # num pictures to visualize
     args = p.parse_args()
 

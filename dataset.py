@@ -6,16 +6,24 @@ import cv2
 import torch
 
 # ----------------- convert LabelMe JSON to binary masks -----------------
-def json_to_mask(json_path, out_shape):
+def json_to_mask(json_path, shape):
     data = json.load(open(json_path))
-    mask = Image.new("L", out_shape, 0)
-    draw = ImageDraw.Draw(mask)
-    for shape in data["shapes"]: # iterate over each annotation in json file
-        if shape["label"] == "ground":
-            pts = shape["points"] # polygon boundary: fill ground boundary with '1'
-            draw.polygon([tuple(p) for p in pts], outline=1, fill=1)
-    return np.array(mask, dtype=np.uint8) * 255  # 0: background or 255: ground
 
+    ground_mask = Image.new("1", shape, 0)
+    not_ground_mask = Image.new("1", shape, 0)
+
+    draw_ground = ImageDraw.Draw(ground_mask)
+    draw_not_ground = ImageDraw.Draw(not_ground_mask)
+
+    for item in data['shapes']:
+        label = item['label']
+        points = item['points']
+        if label == "ground":
+            draw_ground.polygon(points, fill=1)
+        elif label == "not ground":
+            draw_not_ground.polygon(points, fill=1)
+
+    return np.array(ground_mask), np.array(not_ground_mask)
 
 # ----------------- create PyTorch Dataset -----------------
 class GroundSegDataset(Dataset):
