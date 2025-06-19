@@ -88,7 +88,58 @@ class GroundSegmenter {
         vector<string> regions;
     };
 
+    void process_image(const std::string& image_path, GroundSegmenter& segmenter, MotionDeciderWithLasers& decider) {
+        cv::Mat frame = cv::imread(image_path);
+        if (frame.empty()) {
+            throw std::runtime_error("Could not load image.");
+        }
     
+        cv::Mat mask = segmenter.predict_mask(frame);
+        auto laser_scores = decider.laser_scan(mask);
+        std::string decision = decider.decide(laser_scores);
+    
+        // Visualization
+        cv::Mat color_mask;
+        applyColorMap(mask, color_mask, cv::COLORMAP_JET);
+        cv::Mat blended;
+        addWeighted(frame, 0.7, color_mask, 0.3, 0, blended);
+        cv::Mat blended_copy = blended.clone();
+    
+        int step = decider.width / decider.num_beams;
+        int max_score = 1;
+        for (const auto& kv : laser_scores) max_score = std::max(max_score, kv.second);
+        int h = decider.height;
+        std::map<std::string, int> region_centers;
+    
+        for (int i = 0; i < decider.num_beams; ++i) {
+            std::string region = decider.regions[i];
+            int x_start = i * step;
+            int x_end = x_start + step;
+            float norm_score = laser_scores[region] / static_cast<float>(max_score);
+            int intensity = static_cast<int>(255 * (1 - norm_score));
+    
+            cv::Mat overlay = blended_copy.clone();
+            cv::rectangle(overlay, Point(x_start, h/2), Point(x_end, h), Scalar(intensity, intensity, intensity), -1);
+            addWeighted(overlay, 0.3, blended_copy, 0.7, 0, blended_copy);
+            cv::rectangle(blended_copy, Point(x_start, h/2), Point(x_end, h), Scalar(100, 100, 100), 1);
+            cv::putText(blended_copy, std::to_string(laser_scores[region]), Point(x_start + 5, h - 10),
+                        cv::FONT_HERSHEY_PLAIN, 1.2, Scalar(230, 230, 230), 1);
+            region_centers[region] = (x_start + x_end) / 2;
+        }
+    
+        if (decision != "stop" && region_centers.count(decision)) {
+            int center_x = region_centers[decision];
+            cv::line(blended_copy, Point(decider.width / 2, h), Point(center_x, h / 2), Scalar(255, 255, 255), 2);
+        }
+    
+        cv::imshow("Motion Decision", blended_copy);
+        cv::waitKey(0);
+    
+        std::cout << "Laser scores:\n";
+        for (const auto& [k, v] : laser_scores)
+            std::cout << "  " << k << ": " << v << '\n';
+        std::cout << "Final decision: " << decision << "°" << std::endl;
+    }    
     
     int main() {
         string model_path = "/Users/virginiaceccatelli/Documents/vision_control/unet_ground_plane.pt";
@@ -107,25 +158,73 @@ class GroundSegmenter {
     
         MotionDeciderWithLasers decider(w, h);
         auto last_time = chrono::steady_clock::now();
-    
+    	
+        cv::VideoWriter writer("output_visualization.avi", cv::VideoWriter::fourcc('M','J','P','G'), 15, Size(w, h));
+        Mat overlay_frame;  
+
         while (true) {
             cap >> frame;
             if (frame.empty()) break;
-    
+
             auto now = chrono::steady_clock::now();
             float elapsed = chrono::duration_cast<chrono::seconds>(now - last_time).count();
+
             if (elapsed >= 3) {
                 Mat mask = segmenter.predict_mask(frame);
                 auto scores = decider.laser_scan(mask);
                 string decision = decider.decide(scores);
-                cout << "Decision: " << decision << endl;
                 last_time = now;
+
+                // === Visualization ===
+                Mat color_mask;
+                applyColorMap(mask, color_mask, cv::COLORMAP_JET);
+                Mat blended;
+                addWeighted(frame, 0.7, color_mask, 0.3, 0, blended);
+                overlay_frame = blended.clone();  
+
+                int step = decider.width / decider.num_beams;
+                int max_score = 1;
+                for (const auto& kv : scores) max_score = std::max(max_score, kv.second);
+                int h = decider.height;
+                std::map<std::string, int> region_centers;
+
+                for (int i = 0; i < decider.num_beams; ++i) {
+                    std::string region = decider.regions[i];
+                    int x_start = i * step;
+                    int x_end = x_start + step;
+                    float norm_score = scores[region] / static_cast<float>(max_score);
+                    int intensity = static_cast<int>(255 * (1 - norm_score));
+
+                    Mat overlay = overlay_frame.clone();
+                    cv::rectangle(overlay, Point(x_start, h/2), Point(x_end, h), Scalar(intensity, intensity, intensity), -1);
+                    addWeighted(overlay, 0.3, overlay_frame, 0.7, 0, overlay_frame);
+                    cv::rectangle(overlay_frame, Point(x_start, h/2), Point(x_end, h), Scalar(100, 100, 100), 1);
+                    cv::putText(overlay_frame, std::to_string(scores[region]), Point(x_start + 5, h - 10),
+                                cv::FONT_HERSHEY_PLAIN, 1.2, Scalar(230, 230, 230), 1);
+                    region_centers[region] = (x_start + x_end) / 2;
+                }
+
+                if (decision != "stop" && region_centers.count(decision)) {
+                    int center_x = region_centers[decision];
+                    cv::line(overlay_frame, Point(decider.width / 2, h), Point(center_x, h / 2), Scalar(255, 255, 255), 2);
+                }
+
+                std::cout << "Decision: " << decision << std::endl;
             }
-    
-            imshow("Live", frame);
+
+            if (!overlay_frame.empty()) {
+                imshow("Live", overlay_frame);
+                writer.write(overlay_frame);
+            } else {
+                imshow("Live", frame);
+                writer.write(frame);
+            }
+
             if (waitKey(1) == 27) break; // ESC to quit
         }
+
+            
         cap.release();
-        destroyAllWindows();
-        return 0;
+            destroyAllWindows();
+            return 0;
     }
