@@ -3,7 +3,7 @@ import segmentation_models_pytorch as smp
 
 model = smp.Unet(
     encoder_name="mobilenet_v2",
-    encoder_weights=None,  
+    encoder_weights="imagenet",  
     in_channels=3,
     classes=1,
     activation=None
