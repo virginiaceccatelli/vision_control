@@ -1,0 +1,3 @@
+/Users/virginiaceccatelli/Documents/vision_control/build/CMakeFiles/motion_decision.dir
+/Users/virginiaceccatelli/Documents/vision_control/build/CMakeFiles/edit_cache.dir
+/Users/virginiaceccatelli/Documents/vision_control/build/CMakeFiles/rebuild_cache.dir
