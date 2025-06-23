@@ -38,7 +38,7 @@ class MotionDeciderWithLasers:
         for i, region in enumerate(self.regions):
             x_start = i * step
             x_end = x_start + step
-            region_mask = mask[self.height//2:, x_start:x_end]  # bottom half only
+            region_mask = mask[self.height//4:, x_start:x_end]  # bottom half only
             laser_scores[region] = np.sum(region_mask == 255)
         return laser_scores
 
@@ -158,7 +158,7 @@ if __name__ == "__main__":
             end_point = (center_x, h//2)
             cv2.line(blended_copy, start_point, end_point, (255, 255, 255), 2)
 
-        cv2.putText(blended_copy, f"Decision: {decision}°", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        cv2.putText(blended_copy, f"Decision: {decision} degrees", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         cv2.imshow("Motion Decision", blended_copy)
         out.write(blended_copy)
 

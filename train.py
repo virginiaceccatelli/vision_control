@@ -10,7 +10,6 @@ from segmentation_models_pytorch.utils.metrics import IoU
 import cv2
 import matplotlib.pyplot as plt
 from dataset import GroundSegDataset
-from dataset import UNetWithDropout
 
 IMG_DIR = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/hospital_environment"
 TRAIN_SPLIT = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/splits/train.txt"
@@ -48,7 +47,7 @@ def train(args):
     val_dl   = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     # Model: U-Net with a MobileNetV2 encoder pretrained on ImageNet
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # cuda: NVIDIA parallel processing GPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # cuda: NVIDIA parallel processing GPU (not available to me but for future versions)
     model = smp.Unet("mobilenet_v2", encoder_weights="imagenet", classes=1, activation=None) # single channel: one score x pixel
     model = model.to(device)
 
@@ -146,10 +145,10 @@ def main():
     p.add_argument("-img_ext",     type=str, default="png")
     p.add_argument("-mode", type=str, default="train", choices=["train", "infer"])
     p.add_argument("-batch_size",  type=int, default=8)
-    p.add_argument("-epochs",      type=int, default=30)
+    p.add_argument("-epochs",      type=int, default=40)
     p.add_argument("-lr",          type=float, default=1e-4) # learning rate
-    p.add_argument("-output_dir",  type=str, default="checkpoints_7")
-    p.add_argument("-best_epoch", type=int, default=46) # best epoch to visualize
+    p.add_argument("-output_dir",  type=str, default="checkpoints_new")
+    p.add_argument("-best_epoch", type=int, default=47) # best epoch to visualize
     p.add_argument("-num_visualize", type=int, default=5) # num pictures to visualize
     args = p.parse_args()
 
