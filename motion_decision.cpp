@@ -62,7 +62,7 @@ class GroundSegmenter {
             for (int i = 0; i < num_beams; ++i) {
                 int x_start = i * step;
                 int x_end = x_start + step;
-                Rect region_rect(x_start, height / 4, step, height / 4);
+                Rect region_rect(x_start, height / 2, step, height / 2);
                 Mat region = mask(region_rect);
                 laser_scores[regions[i]] = countNonZero(region);
             }
