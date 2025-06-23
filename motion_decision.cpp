@@ -30,7 +30,6 @@ class GroundSegmenter {
             output = output.detach().cpu();
             if (output.dim() == 4) output = output.squeeze(0);  // remove batch dim
             if (output.dim() == 3) output = output.squeeze(0);  // remove channel dim
-            std::cout << "Output shape: " << output.sizes() << std::endl;
     
             Mat mask(320, 320, CV_8UC1);
             for (int i = 0; i < 320; ++i) {
@@ -50,7 +49,7 @@ class GroundSegmenter {
     
     class MotionDeciderWithLasers {
     public:
-        MotionDeciderWithLasers(int width, int height, int num_beams = 7)
+        MotionDeciderWithLasers(int width, int height, int num_beams = 10) 
             : width(width), height(height), num_beams(num_beams) {
             int angle_step = 180 / (num_beams - 1);
             for (int i = 0; i < num_beams; ++i)
@@ -87,87 +86,117 @@ class GroundSegmenter {
         int num_beams;
         vector<string> regions;
     };
+    
+    int main() {
+        string model_path = "/Users/virginiaceccatelli/Documents/vision_control/unet_ground_plane.pt";
+        GroundSegmenter segmenter(model_path);
+    
+        VideoCapture cap(0);
+        if (!cap.isOpened()) {
+            cerr << "Camera failed to open" << endl;
+            return -1;
+        }
+    
+        Mat frame;
+        cap >> frame;
+        int w = frame.cols;
+        int h = frame.rows;
+
+	int fps = 20;
+	VideoWriter out("output_video.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(w, h));
+	if (!out.isOpened()) {
+	    cerr << "Failed to open video writer" << endl;
+	    return -1;
+	}
 
     
-   int main() {
-    string model_path = "/Users/virginiaceccatelli/Documents/vision_control/unet_ground_plane.pt";
-    GroundSegmenter segmenter(model_path);
-
-    VideoCapture cap(0);
-    if (!cap.isOpened()) {
-        cerr << "Camera failed to open" << endl;
-        return -1;
-    }
-
-    Mat frame;
-    cap >> frame;
-    int w = frame.cols;
-    int h = frame.rows;
-
-    MotionDeciderWithLasers decider(w, h);
-    auto last_time = chrono::steady_clock::now();
-
-    Mat mask(h, w, CV_8UC1, Scalar(0));
-    map<string, int> laser_scores;
-    string decision = "waiting...";
-
-    while (true) {
-        cap >> frame;
-        if (frame.empty()) break;
-
-        auto now = chrono::steady_clock::now();
-        float elapsed = chrono::duration_cast<chrono::seconds>(now - last_time).count();
-        if (elapsed >= 3) {
-            mask = segmenter.predict_mask(frame);
-            laser_scores = decider.laser_scan(mask);
-            decision = decider.decide(laser_scores);
-            last_time = now;
+        MotionDeciderWithLasers decider(w, h);
+        auto last_time = chrono::steady_clock::now();
+    
+        Mat mask; // no prefilled image
+        map<string, int> laser_scores;
+        string decision = "waiting...";
+    
+        while (true) {
+            cap >> frame;
+            if (frame.empty()) break;
+    
+            auto now = chrono::steady_clock::now();
+            float elapsed = chrono::duration_cast<chrono::seconds>(now - last_time).count();
+    
+            if (elapsed >= 3) {
+                mask = segmenter.predict_mask(frame);
+                laser_scores = decider.laser_scan(mask);
+                decision = decider.decide(laser_scores);
+                last_time = now;
+            }
+    
+            if (decision != "waiting...") {
+                // Visual Overlay
+                Mat color_mask, blended, overlay;
+                applyColorMap(mask, color_mask, COLORMAP_JET);
+                addWeighted(frame, 0.7, color_mask, 0.3, 0, blended);
+                blended.copyTo(overlay);
+    
+                int step = decider.width / decider.num_beams;
+                int max_score = 1;
+                for (const auto& [_, val] : laser_scores)
+                    max_score = max(max_score, val);
+    
+                map<string, int> region_centers;
+    
+                for (int i = 0; i < decider.num_beams; ++i) {
+                    string region = decider.regions[i];
+                    int x_start = i * step;
+                    int x_end = x_start + step;
+                    int val = laser_scores[region];
+                    float norm_score = static_cast<float>(val) / max_score;
+                    int intensity = static_cast<int>(255 * (1.0f - norm_score));
+    
+                    rectangle(overlay, Point(x_start, h / 2), Point(x_end, h),
+                              Scalar(intensity, intensity, intensity), FILLED);
+    
+                    region_centers[region] = (x_start + x_end) / 2;
+                }
+    
+                addWeighted(overlay, 0.2, blended, 0.8, 0, blended);
+    
+                for (int i = 0; i < decider.num_beams; ++i) {
+                    int x_start = i * step;
+                    int x_end = x_start + step;
+                    rectangle(blended, Point(x_start, h / 2), Point(x_end, h), Scalar(100, 100, 100), 1);
+    
+                    string region = decider.regions[i];
+                    int val = laser_scores[region];
+                    Point text_pos(x_start + 5, h - 10);
+                    putText(blended, to_string(val), text_pos + Point(1, 1),
+                            FONT_HERSHEY_PLAIN, 1.3, Scalar(0, 0, 0), 2); // shadow
+                    putText(blended, to_string(val), text_pos,
+                            FONT_HERSHEY_PLAIN, 1.3, Scalar(255, 255, 255), 1); // text
+                }
+    
+                if (decision != "stop" && region_centers.count(decision)) {
+                    int cx = region_centers[decision];
+                    Point start(w / 2, h);
+                    Point end(cx, h / 2);
+                    line(blended, start, end, Scalar(255, 255, 255), 2);
+                }
+    
+                Point text_pos(10, 30);
+                putText(blended, "Decision: " + decision + " degrees", text_pos,
+                        FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 255, 255), 2);
+    
+                imshow("Motion Decision Overlay", blended);
+		out.write(blended);
+            } else {
+                imshow("Motion Decision Overlay", frame); // show raw frame until prediction
+            }
+    
+            if (waitKey(1) == 27) break; // ESC to quit
         }
-
-        // Visual Overlay
-        Mat color_mask;
-        applyColorMap(mask, color_mask, COLORMAP_JET);
-        Mat blended;
-        addWeighted(frame, 0.7, color_mask, 0.3, 0, blended);
-
-        Mat overlay;
-        blended.copyTo(overlay);
-        int step = decider.width / decider.num_beams;
-        int max_score = 1;
-        for (const auto& [_, val] : laser_scores)
-            max_score = max(max_score, val);
-
-        map<string, int> region_centers;
-        for (int i = 0; i < decider.num_beams; ++i) {
-            string region = decider.regions[i];
-            int x_start = i * step;
-            int x_end = x_start + step;
-            int val = laser_scores[region];
-            float norm_score = static_cast<float>(val) / max_score;
-            int intensity = static_cast<int>(255 * (1.0f - norm_score));
-
-            rectangle(overlay, Point(x_start, h / 2), Point(x_end, h), Scalar(intensity, intensity, intensity), -1);
-            addWeighted(overlay, 0.2, blended, 0.8, 0, blended);
-	    rectangle(blended, Point(x_start, h / 2), Point(x_end, h), Scalar(100, 100, 100), 1);
-
-            putText(blended, to_string(val), Point(x_start + 5, h - 10), FONT_HERSHEY_PLAIN, 1.2, Scalar(230, 230, 230), 1);
-            region_centers[region] = (x_start + x_end) / 2;
-        }
-
-        if (decision != "stop" && decision != "waiting..." && region_centers.count(decision)) {
-            int cx = region_centers[decision];
-            Point start(w / 2, h);
-            Point end(cx, h / 2);
-            line(blended, start, end, Scalar(255, 255, 255), 2);
-        }
-	putText(blended, "Decision: " + decision, Point(10, 30), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 255, 255), 2);
-
-
-        imshow("Motion Decision Overlay", blended);
-        if (waitKey(1) == 27) break; // ESC to quit
-    }
-    cap.release();
-    destroyAllWindows();
-    return 0;
-}
- 
+    
+        cap.release();
+        out.release();
+        destroyAllWindows();
+        return 0;
+    }    

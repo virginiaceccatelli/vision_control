@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
     out = cv2.VideoWriter("output.mp4", cv2.VideoWriter_fourcc(*'mp4v'), 20, (w, h))  # save video
     segmenter = GroundSegmenter(ckpt_path, device='cpu')
-    decider = MotionDeciderWithLasers(segmenter, img_width=w, img_height=h, num_beams=7)
+    decider = MotionDeciderWithLasers(segmenter, img_width=w, img_height=h, num_beams=10)
     mask = np.zeros((h, w), dtype=np.uint8)  # initialize dummy mask
     laser_scores = {region: 0 for region in decider.regions}  # initialize empty scores
     decision = "waiting..."
@@ -158,6 +158,7 @@ if __name__ == "__main__":
             end_point = (center_x, h//2)
             cv2.line(blended_copy, start_point, end_point, (255, 255, 255), 2)
 
+        cv2.putText(blended_copy, f"Decision: {decision}°", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         cv2.imshow("Motion Decision", blended_copy)
         out.write(blended_copy)
 

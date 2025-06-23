@@ -58,3 +58,5 @@ class GroundSegDataset(Dataset):
         mask = torch.from_numpy(mask)[None].float()
 
         return img, mask
+
+

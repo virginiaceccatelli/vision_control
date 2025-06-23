@@ -10,6 +10,7 @@ from segmentation_models_pytorch.utils.metrics import IoU
 import cv2
 import matplotlib.pyplot as plt
 from dataset import GroundSegDataset
+from dataset import UNetWithDropout
 
 IMG_DIR = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/hospital_environment"
 TRAIN_SPLIT = "/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/splits/train.txt"
