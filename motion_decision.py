@@ -18,10 +18,16 @@ class GroundSegmenter:
         rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
         tensor = torch.from_numpy(rgb).permute(2, 0, 1).unsqueeze(0).float() / 255.0
         tensor = tensor.to(self.device)
+	
         with torch.no_grad():
-            output = self.model(tensor).squeeze().cpu().numpy()
-        mask = (output > 0.5).astype(np.uint8) * 255
-        return cv2.resize(mask, (w, h))
+            logits = self.model(tensor)                         # shape: [1, 1, 320, 320]
+            probs = torch.sigmoid(logits).squeeze().cpu().numpy()  # convert logits → probs
+
+        prob_map = cv2.resize(probs, (w, h), interpolation=cv2.INTER_NEAREST)
+        mask = (prob_map > 0.5).astype(np.uint8) * 255           
+
+        return mask, prob_map   
+
 
 class MotionDeciderWithLasers:
     def __init__(self, segmenter, img_width, img_height, num_beams=5):
@@ -56,7 +62,11 @@ def process_image(image_path, segmenter, decider):
     if frame is None:
         raise ValueError("Could not load image.")
 
-    mask = segmenter.predict_mask(frame)
+    mask, prob_map = segmenter.predict_mask(frame)
+    prob_map_uint8 = np.clip(prob_map * 255, 0, 255).astype(np.uint8)
+    heatmap = cv2.applyColorMap(prob_map_uint8, cv2.COLORMAP_JET)
+    blended_heatmap = cv2.addWeighted(frame, 0.6, heatmap, 0.4, 0)
+
     laser_scores = decider.laser_scan(mask)
     decision = decider.decide(laser_scores)
 
@@ -100,6 +110,7 @@ def process_image(image_path, segmenter, decider):
 
 
 if __name__ == "__main__":
+
     ckpt_path = "unet_ground_plane.pt"
 
     last_decision_time = 0
@@ -110,6 +121,7 @@ if __name__ == "__main__":
     h, w = frame.shape[:2]
 
     out = cv2.VideoWriter("output.mp4", cv2.VideoWriter_fourcc(*'mp4v'), 20, (w, h))  # save video
+    heatmap_out = cv2.VideoWriter("output_heatmap.mp4", cv2.VideoWriter_fourcc(*'mp4v'), 20, (w, h)) # save heatmap
     segmenter = GroundSegmenter(ckpt_path, device='cpu')
     decider = MotionDeciderWithLasers(segmenter, img_width=w, img_height=h, num_beams=10)
     mask = np.zeros((h, w), dtype=np.uint8)  # initialize dummy mask
@@ -127,7 +139,7 @@ if __name__ == "__main__":
 
         current_time = time.time()
         if current_time - last_decision_time >= decision_interval:
-            mask = segmenter.predict_mask(frame)
+            mask, prob_map = segmenter.predict_mask(frame)
             laser_scores = decider.laser_scan(mask)
             decision = decider.decide(laser_scores)
             last_decision_time = current_time
@@ -147,6 +159,11 @@ if __name__ == "__main__":
             overlay = blended_copy.copy()
             cv2.rectangle(overlay, (x_start, h//2), (x_end, h), (intensity, intensity, intensity), -1)
             blended_copy = cv2.addWeighted(overlay, 0.3, blended_copy, 0.7, 0)
+	    
+            prob_map_uint8 = (prob_map * 255).astype(np.uint8)
+            heatmap = cv2.applyColorMap(prob_map_uint8, cv2.COLORMAP_JET)
+            blended_heatmap = cv2.addWeighted(frame, 0.6, heatmap, 0.4, 0)
+
             cv2.rectangle(blended_copy, (x_start, h//2), (x_end, h), (100, 100, 100), 1)
             score_text = f"{laser_scores[region]}"
             cv2.putText(blended_copy, score_text, (x_start + 5, h - 10), cv2.FONT_HERSHEY_PLAIN, 1.2, (230, 230, 230), 1)
@@ -161,10 +178,18 @@ if __name__ == "__main__":
         cv2.putText(blended_copy, f"Decision: {decision} degrees", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         cv2.imshow("Motion Decision", blended_copy)
         out.write(blended_copy)
+	
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+	
+        cv2.putText(blended_heatmap, f"Decision: {decision} degrees", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        cv2.imshow("Probability Heatmap", blended_heatmap)
+        heatmap_out.write(blended_heatmap)	
 
         if cv2.waitKey(1) & 0xFF == 27:
             break
 
     out.release()
+    heatmap_out.release()
     cap.release()
     cv2.destroyAllWindows()

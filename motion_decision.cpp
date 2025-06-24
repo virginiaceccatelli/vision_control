@@ -17,31 +17,39 @@ class GroundSegmenter {
             module.eval();
         }
     
-        Mat predict_mask(const Mat& img_bgr) {
+        pair<Mat, Mat> predict_mask(const Mat& img_bgr) {
             Mat resized, rgb;
             resize(img_bgr, resized, Size(320, 320));
             cvtColor(resized, rgb, COLOR_BGR2RGB);
-    
+        
             torch::Tensor tensor = torch::from_blob(rgb.data, {1, 320, 320, 3}, torch::kByte);
             tensor = tensor.permute({0, 3, 1, 2}).to(torch::kFloat) / 255.0;
-    
+        
             torch::NoGradGuard no_grad;
             torch::Tensor output = module.forward({tensor}).toTensor();
             output = output.detach().cpu();
-            if (output.dim() == 4) output = output.squeeze(0);  // remove batch dim
-            if (output.dim() == 3) output = output.squeeze(0);  // remove channel dim
-    
+            if (output.dim() == 4) output = output.squeeze(0);
+            if (output.dim() == 3) output = output.squeeze(0);
+        
+            Mat prob_map(320, 320, CV_32F);
+            for (int i = 0; i < 320; ++i) {
+                for (int j = 0; j < 320; ++j) {
+                    prob_map.at<float>(i, j) = torch::sigmoid(output[i][j]).item<float>();
+                }
+            }
+        
             Mat mask(320, 320, CV_8UC1);
             for (int i = 0; i < 320; ++i) {
                 for (int j = 0; j < 320; ++j) {
-                    mask.at<uchar>(i, j) = output[i][j].item<float>() > 0.5 ? 255 : 0;
+                    mask.at<uchar>(i, j) = prob_map.at<float>(i, j) > 0.5f ? 255 : 0;
                 }
             }
-    
-            Mat upscaled;
-            resize(mask, upscaled, img_bgr.size());
-            return upscaled;
-        }
+        
+            resize(mask, mask, img_bgr.size());
+            resize(prob_map, prob_map, img_bgr.size(), 0, 0, INTER_NEAREST);
+        
+            return {mask, prob_map};
+        }        
     
     private:
         torch::jit::script::Module module;
@@ -104,17 +112,19 @@ class GroundSegmenter {
 
 	int fps = 20;
 	VideoWriter out("output_video.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(w, h));
-	if (!out.isOpened()) {
+	VideoWriter heatmap_out("heatmap_output.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(w, h));
+
+    if (!out.isOpened()) {
 	    cerr << "Failed to open video writer" << endl;
 	    return -1;
 	}
-
     
         MotionDeciderWithLasers decider(w, h);
         auto last_time = chrono::steady_clock::now();
     
         Mat mask; // no prefilled image
-        map<string, int> laser_scores;
+        Mat prob_map; 
+	map<string, int> laser_scores;
         string decision = "waiting...";
     
         while (true) {
@@ -125,14 +135,14 @@ class GroundSegmenter {
             float elapsed = chrono::duration_cast<chrono::seconds>(now - last_time).count();
     
             if (elapsed >= 3) {
-                mask = segmenter.predict_mask(frame);
+                tie(mask, prob_map) = segmenter.predict_mask(frame);
                 laser_scores = decider.laser_scan(mask);
                 decision = decider.decide(laser_scores);
                 last_time = now;
             }
     
             if (decision != "waiting...") {
-                // Visual Overlay
+                // Visual Overlay Simple Ground Mask 
                 Mat color_mask, blended, overlay;
                 applyColorMap(mask, color_mask, COLORMAP_JET);
                 addWeighted(frame, 0.7, color_mask, 0.3, 0, blended);
@@ -183,11 +193,21 @@ class GroundSegmenter {
                 }
     
                 Point text_pos(10, 30);
-                putText(blended, "Decision: " + decision + " degrees", text_pos,
+                putText(blended, "Decision: " + decision + " degrees", text_pos, FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 255, 255), 2);
+
+                // Visual Overlay Heatmask
+                Mat prob_map_uint8, heatmap, blended_heatmap;
+                prob_map.convertTo(prob_map_uint8, CV_8UC1, 255.0);
+                applyColorMap(prob_map_uint8, heatmap, COLORMAP_JET);
+                addWeighted(frame, 0.6, heatmap, 0.4, 0, blended_heatmap);
+
+                putText(blended_heatmap, "Decision: " + decision + " degrees", Point(10, 30),
                         FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 255, 255), 2);
-    
+                imshow("Probability Heatmap", blended_heatmap);
+                heatmap_out.write(blended_heatmap);
+
                 imshow("Motion Decision Overlay", blended);
-		out.write(blended);
+		        out.write(blended);
             } else {
                 imshow("Motion Decision Overlay", frame); // show raw frame until prediction
             }
@@ -197,6 +217,7 @@ class GroundSegmenter {
     
         cap.release();
         out.release();
+        heatmap_out.release();
         destroyAllWindows();
         return 0;
     }    
