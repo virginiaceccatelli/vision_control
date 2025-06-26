@@ -6,6 +6,8 @@ import segmentation_models_pytorch as smp
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
+# ----------------- Binary Ground Mask Calculation -----------------
+
 class GroundSegmenter:
     def __init__(self, ckpt_path, device='cpu'):
         self.device = torch.device(device)
@@ -28,6 +30,7 @@ class GroundSegmenter:
 
         return mask, prob_map   
 
+# ----------------- Motion Decision -----------------
 
 class MotionDeciderWithLasers:
     def __init__(self, segmenter, img_width, img_height, num_beams=5):
@@ -56,6 +59,8 @@ class MotionDeciderWithLasers:
         if laser_scores[best_region] < total * threshold_ratio:
             return "stop"
         return best_region
+
+# ----------------- Visual Output -----------------
 
 def process_image(image_path, segmenter, decider):
     frame = cv2.imread(image_path)
@@ -108,6 +113,7 @@ def process_image(image_path, segmenter, decider):
     print("Laser scores:", dict(laser_scores))
     print("Final decision:", decision + "°")
 
+# ----------------- Control -----------------
 
 if __name__ == "__main__":
 

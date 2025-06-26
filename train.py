@@ -136,6 +136,8 @@ def visualize_predictions(args, model):
         plt.axis("off")
         plt.show()
 
+# ----------------- Argument Parser -----------------
+
 def main():
     p = argparse.ArgumentParser(description="Train U-Net for ground segmentation")
     p.add_argument("-img_dir",     type=str, default="/Users/virginiaceccatelli/Documents/vision_control/CompVisionMorbius/hospital_environment")

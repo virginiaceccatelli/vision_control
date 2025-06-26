@@ -13,8 +13,8 @@ for fn in os.listdir(JSON_DIR):
     img = Image.open(f"{IMG_DIR}/{base}.png")     
     w,h = img.size                                  # note: (width, height)
     
-    ground_mask, not_ground_mask = json_to_mask(f"{JSON_DIR}/{fn}", (w, h))
-    final_mask = ground_mask & (~not_ground_mask.astype(bool))
+    ground_mask, not_ground_mask = json_to_mask(f"{JSON_DIR}/{fn}", (w, h)) # extract json ground_mask and not_ground_mask
+    final_mask = ground_mask & (~not_ground_mask.astype(bool)) # remove obstacles within ground_mask
 
     Image.fromarray(final_mask.astype("uint8") * 255).save(f"{MASK_DIR}/{base}.png")
 

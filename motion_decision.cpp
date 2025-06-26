@@ -8,7 +8,9 @@
 #include <string>
 
 using namespace std;
-using namespace cv;
+using namespace cv; 
+
+# ----------------- Binary Ground Mask Calculation -----------------
 
 class GroundSegmenter {
     public:
@@ -55,6 +57,8 @@ class GroundSegmenter {
         torch::jit::script::Module module;
     };
     
+# ----------------- Motion Decision -----------------
+
     class MotionDeciderWithLasers {
     public:
         MotionDeciderWithLasers(int width, int height, int num_beams = 10) 
@@ -94,6 +98,8 @@ class GroundSegmenter {
         int num_beams;
         vector<string> regions;
     };
+
+# ----------------- Main Class -----------------
     
     int main() {
         string model_path = "/Users/virginiaceccatelli/Documents/vision_control/unet_ground_plane.pt";

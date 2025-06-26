@@ -2,11 +2,11 @@ import torch
 import cv2
 import numpy as np
 
-# replace
+# replace with directory to .pt
 model = torch.jit.load("../unet_ground_plane.pt")
 model.eval()
 
-# replace 
+# replace 'name'
 cap = cv2.VideoCapture("example_video.mp4")
 if not cap.isOpened():
     raise IOError("Cannot open video")
@@ -41,7 +41,7 @@ while True:
     color_mask = cv2.applyColorMap(mask_resized, cv2.COLORMAP_JET)
     blended = cv2.addWeighted(original, 0.7, color_mask, 0.3, 0)
 
- # ----------------------- fit central line in mask -----------------------
+ # ----------------------- Fit Central Line in Mask -----------------------
     central_points = []
     step = 5  # adjust smoothness vs. speed
     for y in range(height - 1, 0, -step):  # bottom to top
