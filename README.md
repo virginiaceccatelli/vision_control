@@ -35,9 +35,9 @@ This project implements a model that performs **ground segmentation** using a U-
 2. either motion_decision.py for simpler ML and CV integration (future improvements) or motion_decision.cpp for faster inference and decision
 
 #### Motion Direction with predicted ground-plane mask (screenshot)
-![alt text](image-1.png)
+![alt text](motion_decision.png)
 
 #### Motion Direction with classification prediction (screenshot)
-![alt text](image-2.png)
+![alt text](heatmap.png)
 
 #### **some more current metrics and output images/ videos can be found under visualisations**
